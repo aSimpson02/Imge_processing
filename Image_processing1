@@ -1,0 +1,130 @@
+#importing libraries
+import cv2
+from matplotlib import pyplot as plt
+import os
+import tensorflow as tf
+from tensorflow import keras
+import numpy as np
+from keras.models import Sequential
+from keras.layers import Conv2D, MaxPooling2D, Flatten, Dense
+
+
+#TASK1:
+#loading individual image:
+#img = cv2.imread('Assessment1/images/bicycles/_wigry_3_rower.png_.jpg', cv2.IMREAD_COLOR)
+
+#finding out image data:
+#print(img.shape)
+
+#showing/displaying the image
+#plt.imshow(img)
+
+#function to see which images is relevant
+#prameter = img, which is the path to the image file
+#the function outputs where image is true/false for relevancy
+def relevant_image(img):
+    try:
+        with open(img, "rb") as fobj:
+            return tf.compat.as_bytes("JFIF") not in fobj.peek(10)
+    except Exception as e:
+        return True
+
+#accessing through files to preprocess multiple images at once
+#achieved through for loops
+for root, dirs, files in os.walk("Assessment1/images"):
+    images_path = root.split(os.sep)
+
+    for file in files:
+        i = os.path.splitext(file)
+
+        if i == ".jpg":
+            file_path = os.path.join(root, file)
+
+            #Checkingg if image is relevant
+            if relevant_image(file_path):
+                os.remove(file_path)
+                continue
+
+            #using cv2 to manipulate the image
+            img1 = cv2.imread(file_path, cv2.IMREAD_COLOR)
+            img2 = cv2.cvtColor(img1, cv2.COLOR_BGR2RGB)
+            img3 = cv2.resize(img2, (256, 256))
+            plt.imshow(img3)
+
+#doing this for multile images, creating for loop to do this:
+num_skipped = 0
+for root, dirs, files in os.walk("Assessment1/images"):
+    for file in files:
+        i = os.path.splitext(file)
+
+        if i == ".jpg":
+            path = os.path.join(root, file)
+            #print(len(path))
+
+            #to take away irrelevant images
+            try:
+                with open(path, "rb") as fobj:
+                    is_jfif = tf.compat.as_bytes("JFIF") in fobj.peek(10)
+            except Exception as e:
+                is_jfif = False
+
+            #deleting irrelevant images
+            if not is_jfif:
+                num_skipped += 1
+                os.remove(path)
+
+#printing the number o fimages that are irrelevant/ filtered out of code
+print("Deleted %d images" % num_skipped)
+
+#loading images w keras into the traina nd test data 
+images_path = "Assessment1/images"
+training_dataset = keras.preprocessing.image_dataset_from_directory(
+    images_path,
+    labels='inferred',
+    label_mode='categorical',
+    color_mode="rgb",
+    batch_size=32,
+    image_size=(150, 150),
+    subset="training",
+    validation_split=0.1,
+    seed=1
+)
+
+test_dataset = keras.preprocessing.image_dataset_from_directory(
+    images_path,
+    labels='inferred',
+    label_mode='categorical',
+    color_mode="rgb",
+    batch_size=32,
+    image_size=(150, 150),
+    subset="validation",
+    validation_split=0.1,
+    seed=1
+)
+
+
+
+#TASK 2:
+#defining the model 
+model = keras.Sequential([
+    keras.layers.Conv2D(32, kernel_size=(3, 3), activation="relu", input_shape=(150, 150, 3)),
+    keras.layers.MaxPooling2D(pool_size=(4, 4)),
+    keras.layers.Flatten(),
+    keras.layers.Dropout(0.5),
+    keras.layers.Dense(4, activation="softmax")
+])
+
+#seeing data on the model
+model.summary()
+
+#compiling the model
+model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+
+#training the model
+model.fit(training_dataset, epochs=20, validation_data=test_dataset)
+
+#saving the trained model, so it can be used for exporting
+model.save("Assessment1/model.h5")
+
+#output:  loss: 0.1075 - accuracy: 0.9612 - val_loss: 13.8207 - val_accuracy: 0.5750
+#2nd ouptut: loss: 0.2289 - accuracy: 0.9723 - val_loss: 14.9663 - val_accuracy: 0.6250
